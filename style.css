@@ -498,13 +498,17 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
-  overflow-x: auto;
+  overflow: auto;
+  /* Use a tall max-height so the table scrolls within this container.
+     sticky th with top:0 then works correctly relative to this box. */
+  max-height: calc(100vh - 220px);
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  min-width: 780px;
 }
 
 .data-table th {
@@ -519,7 +523,7 @@ body {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   position: sticky;
-  top: var(--nav-h);
+  top: 0;
   z-index: 50;
 }
 
