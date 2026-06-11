@@ -467,21 +467,12 @@ body {
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow-x: auto;
   background: var(--card);
+  overflow: visible;
 }
 
 .table-wrap {
-  max-height: 75vh;
-  overflow-y: auto;
   overflow-x: auto;
-}
-
-.data-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: #111111;
 }
 
 .data-table {
@@ -490,11 +481,11 @@ body {
   font-size: 13px;
 }
 
-.data-table thead th {
-  position: sticky;
-  top: 56px; /* navbar height */
-  z-index: 20;
-  background: #111111;
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow-x: auto;
 }
 
 .data-table th {
@@ -508,6 +499,10 @@ body {
   text-align: left;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+
+  position: sticky;
+  top: 56px;
+  z-index: 50;
 }
 
 .data-table th.sortable {
