@@ -155,21 +155,53 @@ function fetchSheetData(sheetName) {
 }
 
 /**
- * Parse the Google Visualization API response object.
+ * Column layouts differ per tab (based on actual spreadsheet):
  *
- * Column layout per README:
- *   col 0 = A = Date
- *   col 1 = B = Amount
- *   col 2 = C = Project Name
- *   col 3 = D = (empty — skip)
- *   col 4 = E = For Checking
- *   col 5 = F = Revised Version
- *   col 6 = G = Paid
+ * DC:    0=Date, 1=Amount, 2=Name, 3=empty, 4=ForChecking, 5=Revised, 6=empty, 7=Paid
+ * Chef:  0=Date, 1=Amount, 2=Name, 3=ToReview, 4=Check1, 5=Check2, 6=empty, 7=Paid, 8=Revised
+ * All others (Jeya,L&S,LHF,Boney,Aida,AMmarket,Goreng,Mavi,Saddam):
+ *        0=Date, 1=Amount, 2=Name, 3=ToReview, 4=Check1, 5=Check2, 6=Revised, 7=Paid
+ *
+ * "Paid" column values are Excel date serials (e.g. 46039) — convert to readable date.
+ * "Check" / "Revised" columns contain TRUE/FALSE booleans or filename strings.
  */
+
+// Excel serial date → "MMM D, YYYY"
+function excelSerialToDate(serial) {
+  if (!serial) return '';
+  const num = parseFloat(String(serial).replace(/[^0-9.]/g, ''));
+  if (isNaN(num) || num < 1000) return String(serial); // not a plausible serial
+  // Excel epoch: Jan 0 1900 (with leap year bug — serial 1 = Jan 1 1900)
+  const msPerDay = 86400000;
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30 1899
+  const d = new Date(excelEpoch.getTime() + Math.round(num) * msPerDay);
+  if (isNaN(d.getTime())) return String(serial);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+// Determine if a cell value is "truthy" — has content but isn't FALSE/0/empty
+function isTruthy(val) {
+  if (!val) return false;
+  const s = String(val).trim().toUpperCase();
+  return s !== '' && s !== 'FALSE' && s !== '0';
+}
+
+function getColLayout(sheetName) {
+  if (sheetName === 'DC') {
+    return { check: 4, revised: 5, paid: 7 };
+  } else if (sheetName === 'Chef') {
+    return { check: 4, revised: 8, paid: 7 };
+  } else {
+    // Jeya, L&S, LHF, Boney, Aida, AMmarket, Goreng, Mavi, Saddam
+    return { check: 4, revised: 6, paid: 7 };
+  }
+}
+
 function parseGvizData(data, sheetName) {
   const rows = data && data.table && data.table.rows;
   if (!rows || !rows.length) return [];
 
+  const cols = getColLayout(sheetName);
   const projects = [];
 
   rows.forEach(row => {
@@ -178,31 +210,43 @@ function parseGvizData(data, sheetName) {
     const cell = (i) => {
       const c = row.c[i];
       if (!c || c.v === null || c.v === undefined) return '';
-      // Prefer formatted value (f) for dates, fallback to raw value (v)
       return String(c.f !== undefined && c.f !== null ? c.f : c.v).trim();
     };
 
     const dateRaw    = cell(0);
     const amtRaw     = cell(1);
     const nameRaw    = cell(2);
-    // col 3 is empty, skip
-    const checkRaw   = cell(4);
-    const revisedRaw = cell(5);
-    const paidRaw    = cell(6);
+    const checkRaw   = cell(cols.check);
+    const revisedRaw = cell(cols.revised);
+    const paidRaw    = cell(cols.paid);
 
     // Skip rows with no project name and no date
     if (!nameRaw && !dateRaw) return;
+    // Skip pure header/total rows
+    if (nameRaw.toLowerCase() === 'project name:' || dateRaw.toLowerCase() === 'date:') return;
 
     const amount = parseAmount(amtRaw);
     const month  = extractMonth(dateRaw);
+
+    // Convert paid serial to human-readable date; blank out FALSE
+    let paidDisplay = '';
+    if (isTruthy(paidRaw)) {
+      // It's a number serial if it looks numeric and > 1000
+      const num = parseFloat(paidRaw.replace(/[^0-9.]/g, ''));
+      if (!isNaN(num) && num > 10000) {
+        paidDisplay = excelSerialToDate(num);
+      } else {
+        paidDisplay = paidRaw;
+      }
+    }
 
     projects.push({
       date:    dateRaw,
       amount,
       name:    nameRaw || '(Untitled)',
-      check:   checkRaw,
-      revised: revisedRaw,
-      paid:    paidRaw,
+      check:   isTruthy(checkRaw) ? (checkRaw.toUpperCase() === 'TRUE' ? '✓' : checkRaw) : '',
+      revised: isTruthy(revisedRaw) ? (revisedRaw.toUpperCase() === 'TRUE' ? '✓' : revisedRaw) : '',
+      paid:    paidDisplay,
       month,
       client:  sheetName,
     });
