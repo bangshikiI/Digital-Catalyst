@@ -159,45 +159,59 @@ function fetchSheetData(sheetName) {
   });
 }
 
-/**
- * Parse Google Visualization API response.
- * Column layout: A=DATE, B=Amount, C=Project Name, D=empty, E=For Checking, F=Revised Version, G=Paid
- */
-function parseData(gvizData, sheetName) {
-  const rows = [];
-  if (!gvizData?.table?.rows) return rows;
+function calculateMetrics(projects) {
 
-  gvizData.table.rows.forEach((row) => {
-    const cells = row.c || [];
-    const get = (idx) => {
-      const c = cells[idx];
-      if (!c) return '';
-      return c.f ?? (c.v !== null && c.v !== undefined ? String(c.v) : '');
-    };
+  const total = projects.length;
 
-    const dateVal    = get(0).trim();
-    const amountVal  = get(1).trim();
-    const nameVal    = get(2).trim();
-    const checkVal   = get(4).trim();  // For Checking / To Review
-    const revisedVal = get(5).trim();  // Revised Version
-    const paidVal    = get(6).trim();  // Paid
+  const paidRows = projects.filter(
+    p => p.paid && String(p.paid).trim() !== ''
+  );
 
-    // Skip header/empty/total rows
-    if (!nameVal) return;
-    const dateLow = dateVal.toLowerCase();
-    const nameLow = nameVal.toLowerCase();
-    if (nameLow === 'project name' || nameLow.startsWith('project name')) return;
-    if (dateLow === 'date' || dateLow.includes('total') || dateLow === 'date:') return;
-    if (!dateVal && !amountVal && !nameVal) return;
+  const exported = projects.filter(
+    p => p.revised && String(p.revised).trim() !== ''
+  );
 
-    const rawAmt = amountVal.replace(/[$,\s]/g, '');
-    const amount = parseFloat(rawAmt) || 0;
-    const month  = extractMonth(dateVal);
+  const needsReview = projects.filter(
+    p => p.review && String(p.review).trim() !== ''
+  );
 
-    rows.push({ date: dateVal, amount, name: nameVal, check: checkVal, revised: revisedVal, paid: paidVal, client: sheetName, month });
-  });
+  const completed = projects.filter(
+    p => p.check1 && p.check2
+  );
 
-  return rows;
+  const totalRevenue = projects.reduce(
+    (s, p) => s + p.amount,
+    0
+  );
+
+  const paidRevenue = paidRows.reduce(
+    (s, p) => s + p.amount,
+    0
+  );
+
+  const unpaidRevenue =
+    totalRevenue - paidRevenue;
+
+  const avgRevenue =
+    total ? totalRevenue / total : 0;
+
+  const completionRate =
+    total ? (completed.length / total) * 100 : 0;
+
+  return {
+    total,
+    paid: paidRows.length,
+    exported: exported.length,
+    needsReview: needsReview.length,
+    completed: completed.length,
+
+    totalRevenue,
+    paidRevenue,
+    unpaidRevenue,
+    avgRevenue,
+    completionRate
+  };
+
 }
 
 function extractMonth(dateStr) {
