@@ -29,6 +29,29 @@ const CLIENT_COLORS = [
   '#38bdf8','#fb923c','#c084fc','#4ade80','#e879f9','#facc15',
 ];
 
+// ── COLUMN MAP ────────────────────────────────────────────────────
+// The Google Visualization API skips completely-empty physical columns
+// and re-indexes from 0. The map below reflects the GVIZ index for each
+// key field, derived from the actual sheet layout.
+//
+//  DC:        gviz[0]=Date  [1]=Amount  [2]=Name  [3]=ForChecking  [4]=Revised  [5]=Paid
+//  Chef:      gviz[0]=Date  [1]=Amount  [2]=Name  [3]=ToReview  [4]=Check1  [5]=Check2  [6]=<filename>  [7]=Paid  [8]=Revised
+//  All others:gviz[0]=Date  [1]=Amount  [2]=Name  [3]=ToReview  [4]=Check1  [5]=Check2  [6]=Revised  [7]=Paid
+//
+// "check" = the To Review / For Checking field (col with links or notes sent to client)
+// "revised" = the Revised Version / exported filename
+// "paid" = payment date column
+
+const COL_LAYOUT = {
+  DC:  { check: 3, revised: 4, paid: 5 },
+  Chef:{ check: 3, revised: 8, paid: 7 },
+};
+const COL_DEFAULT = { check: 3, revised: 6, paid: 7 };
+
+function getLayout(sheetName) {
+  return COL_LAYOUT[sheetName] || COL_DEFAULT;
+}
+
 // ── ENTRY POINT ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
@@ -154,89 +177,88 @@ function fetchSheetData(sheetName) {
   });
 }
 
-/**
- * Column layouts differ per tab (based on actual spreadsheet):
- *
- * DC:    0=Date, 1=Amount, 2=Name, 3=empty, 4=ForChecking, 5=Revised, 6=empty, 7=Paid
- * Chef:  0=Date, 1=Amount, 2=Name, 3=ToReview, 4=Check1, 5=Check2, 6=empty, 7=Paid, 8=Revised
- * All others (Jeya,L&S,LHF,Boney,Aida,AMmarket,Goreng,Mavi,Saddam):
- *        0=Date, 1=Amount, 2=Name, 3=ToReview, 4=Check1, 5=Check2, 6=Revised, 7=Paid
- *
- * "Paid" column values are Excel date serials (e.g. 46039) — convert to readable date.
- * "Check" / "Revised" columns contain TRUE/FALSE booleans or filename strings.
- */
-
-// Excel serial date → "MMM D, YYYY"
-function excelSerialToDate(serial) {
-  if (!serial) return '';
-  const num = parseFloat(String(serial).replace(/[^0-9.]/g, ''));
-  if (isNaN(num) || num < 1000) return String(serial); // not a plausible serial
-  // Excel epoch: Jan 0 1900 (with leap year bug — serial 1 = Jan 1 1900)
-  const msPerDay = 86400000;
-  const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30 1899
-  const d = new Date(excelEpoch.getTime() + Math.round(num) * msPerDay);
-  if (isNaN(d.getTime())) return String(serial);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
-
-// Determine if a cell value is "truthy" — has content but isn't FALSE/0/empty
-function isTruthy(val) {
-  if (!val) return false;
-  const s = String(val).trim().toUpperCase();
-  return s !== '' && s !== 'FALSE' && s !== '0';
-}
-
-function getColLayout(sheetName) {
-  if (sheetName === 'DC') {
-    return { check: 4, revised: 5, paid: 7 };
-  } else if (sheetName === 'Chef') {
-    return { check: 4, revised: 8, paid: 7 };
-  } else {
-    // Jeya, L&S, LHF, Boney, Aida, AMmarket, Goreng, Mavi, Saddam
-    return { check: 4, revised: 6, paid: 7 };
-  }
-}
+// ── PARSE GVIZ RESPONSE ───────────────────────────────────────────
+// The gviz API skips completely-empty physical columns and re-indexes.
+// Column indices used here are GVIZ indices (post-skip), not physical.
+//
+// All tabs share the same logical fields; only the gviz index differs
+// per tab (see COL_LAYOUT / COL_DEFAULT above).
+//
+// Paid column: gviz returns dates as { v: "Date(2026,0,17)", f: "Jan 17, 2026" }
+//              or sometimes as a raw number string for older exports.
+// Revised/Check columns: boolean TRUE/FALSE cells come in as boolean v,
+//              filename strings come in as string v.
 
 function parseGvizData(data, sheetName) {
   const rows = data && data.table && data.table.rows;
   if (!rows || !rows.length) return [];
 
-  const cols = getColLayout(sheetName);
+  const layout = getLayout(sheetName);
   const projects = [];
 
   rows.forEach(row => {
     if (!row || !row.c) return;
 
-    const cell = (i) => {
-      const c = row.c[i];
-      if (!c || c.v === null || c.v === undefined) return '';
-      return String(c.f !== undefined && c.f !== null ? c.f : c.v).trim();
+    // Safe cell accessor — returns { v, f } or null
+    const getCell = (i) => {
+      if (!row.c || i >= row.c.length) return null;
+      return row.c[i] || null;
     };
 
-    const dateRaw    = cell(0);
-    const amtRaw     = cell(1);
-    const nameRaw    = cell(2);
-    const checkRaw   = cell(cols.check);
-    const revisedRaw = cell(cols.revised);
-    const paidRaw    = cell(cols.paid);
+    // Get display string from a cell
+    const cellStr = (i) => {
+      const c = getCell(i);
+      if (!c || c.v === null || c.v === undefined) return '';
+      // Prefer formatted value (human-readable) over raw
+      const val = (c.f !== undefined && c.f !== null) ? c.f : c.v;
+      return String(val).trim();
+    };
 
-    // Skip rows with no project name and no date
+    // Get raw value (for booleans)
+    const cellRaw = (i) => {
+      const c = getCell(i);
+      return c ? c.v : null;
+    };
+
+    const dateRaw    = cellStr(0);
+    const amtRaw     = cellStr(1);
+    const nameRaw    = cellStr(2);
+    const checkRaw   = cellRaw(layout.check);
+    const revisedRaw = cellRaw(layout.revised);
+    const paidCell   = getCell(layout.paid);
+
+    // Skip blank rows and header row
     if (!nameRaw && !dateRaw) return;
-    // Skip pure header/total rows
-    if (nameRaw.toLowerCase() === 'project name:' || dateRaw.toLowerCase() === 'date:') return;
+    const nameLower = nameRaw.toLowerCase();
+    const dateLower = dateRaw.toLowerCase();
+    if (nameLower === 'project name:' || nameLower === 'project name' ||
+        dateLower === 'date:' || dateLower === 'date' ||
+        nameLower === 'total:' || dateLower === 'total:') return;
 
     const amount = parseAmount(amtRaw);
     const month  = extractMonth(dateRaw);
 
-    // Convert paid serial to human-readable date; blank out FALSE
+    // Resolve "revised" — true if the cell is boolean true OR has a filename string
+    const isRevised = resolveBoolean(revisedRaw);
+
+    // Resolve "check" — true if the cell has any content (URL, text, TRUE)
+    const isChecked = resolveBoolean(checkRaw);
+
+    // Paid: gviz returns dates with a formatted value like "Jan 17, 2026"
     let paidDisplay = '';
-    if (isTruthy(paidRaw)) {
-      // It's a number serial if it looks numeric and > 1000
-      const num = parseFloat(paidRaw.replace(/[^0-9.]/g, ''));
-      if (!isNaN(num) && num > 10000) {
-        paidDisplay = excelSerialToDate(num);
+    if (paidCell && paidCell.v !== null && paidCell.v !== undefined) {
+      if (paidCell.f) {
+        paidDisplay = String(paidCell.f).trim();
       } else {
-        paidDisplay = paidRaw;
+        const raw = String(paidCell.v).trim();
+        // gviz date value format: "Date(2026,0,17)"
+        const m = raw.match(/^Date\((\d+),(\d+),(\d+)\)/);
+        if (m) {
+          const d = new Date(Date.UTC(+m[1], +m[2], +m[3]));
+          paidDisplay = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', timeZone:'UTC' });
+        } else if (raw && raw !== 'false' && raw !== 'FALSE' && raw !== '0') {
+          paidDisplay = raw;
+        }
       }
     }
 
@@ -244,8 +266,8 @@ function parseGvizData(data, sheetName) {
       date:    dateRaw,
       amount,
       name:    nameRaw || '(Untitled)',
-      check:   isTruthy(checkRaw) ? (checkRaw.toUpperCase() === 'TRUE' ? '✓' : checkRaw) : '',
-      revised: isTruthy(revisedRaw) ? (revisedRaw.toUpperCase() === 'TRUE' ? '✓' : revisedRaw) : '',
+      check:   isChecked,
+      revised: isRevised,
       paid:    paidDisplay,
       month,
       client:  sheetName,
@@ -253,6 +275,16 @@ function parseGvizData(data, sheetName) {
   });
 
   return projects;
+}
+
+// Resolve a raw cell value to boolean
+// TRUE (bool), truthy string (non-empty, not "false"/"FALSE") → true
+// FALSE (bool), null, empty, "FALSE" → false
+function resolveBoolean(v) {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'boolean') return v;
+  const s = String(v).trim().toUpperCase();
+  return s !== '' && s !== 'FALSE' && s !== '0' && s !== 'NONE';
 }
 
 function parseAmount(raw) {
@@ -281,8 +313,8 @@ function extractMonth(dateStr) {
 function calculateMetrics(projects) {
   const total       = projects.length;
   const paidRows    = projects.filter(p => p.paid && p.paid.trim());
-  const exported    = projects.filter(p => p.revised && p.revised.trim());
-  const needsReview = projects.filter(p => p.check && p.check.trim());
+  const exported    = projects.filter(p => p.revised);
+  const needsReview = projects.filter(p => p.check);
   const completed   = exported;
 
   const totalRevenue   = projects.reduce((s, p) => s + p.amount, 0);
@@ -523,8 +555,8 @@ function applyFiltersAndRender() {
   if (month)  rows = rows.filter(r => r.month === month);
   if (paid === 'paid')   rows = rows.filter(r => r.paid && r.paid.trim());
   if (paid === 'unpaid') rows = rows.filter(r => !r.paid || !r.paid.trim());
-  if (status === 'completed' || status === 'exported') rows = rows.filter(r => r.revised && r.revised.trim());
-  if (status === 'review') rows = rows.filter(r => r.check && r.check.trim());
+  if (status === 'completed' || status === 'exported') rows = rows.filter(r => r.revised);
+  if (status === 'review') rows = rows.filter(r => r.check);
   if (search) rows = rows.filter(r =>
     r.name.toLowerCase().includes(search) ||
     r.client.toLowerCase().includes(search) ||
@@ -558,8 +590,8 @@ function renderTable() {
 
   tbody.innerHTML = page.map(r => {
     const isPaid     = r.paid && r.paid.trim();
-    const isExported = r.revised && r.revised.trim();
-    const hasReview  = r.check && r.check.trim();
+    const isExported = r.revised;
+    const hasReview  = r.check;
     const statusBadge = isExported
       ? `<span class="badge badge-completed">Completed</span>`
       : hasReview
@@ -574,8 +606,8 @@ function renderTable() {
       <td class="td-client">${escHtml(r.client)}</td>
       <td class="td-name">${escHtml(r.name)}</td>
       <td class="td-amount">${r.amount ? fmt$(r.amount) : '—'}</td>
-      <td>${hasReview  ? `<span class="badge badge-review">${escHtml(r.check)}</span>`                        : '<span style="color:var(--text-3)">—</span>'}</td>
-      <td>${isExported ? `<span class="badge badge-exported" title="${escHtml(r.revised)}">Exported</span>` : '<span style="color:var(--text-3)">—</span>'}</td>
+      <td>${hasReview  ? `<span class="badge badge-review">✓</span>`    : '<span style="color:var(--text-3)">—</span>'}</td>
+      <td>${isExported ? `<span class="badge badge-exported">Exported</span>` : '<span style="color:var(--text-3)">—</span>'}</td>
       <td>${payBadge}</td>
       <td>${statusBadge}</td>
     </tr>`;
@@ -619,7 +651,7 @@ function exportCsv() {
   const lines = [headers.join(','), ...rows.map(r => [
     csvField(r.date), csvField(r.client), csvField(r.name),
     r.amount ? r.amount.toFixed(2) : '',
-    csvField(r.check), csvField(r.revised), csvField(r.paid),
+    r.check ? 'TRUE' : '', r.revised ? 'TRUE' : '', csvField(r.paid),
   ].join(','))];
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
