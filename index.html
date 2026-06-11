@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Catalyst — Production Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="20" height="20" rx="5" fill="#ffffff" fill-opacity="0.08"/>
+          <path d="M7 6L14 10L7 14V6Z" fill="white"/>
+        </svg>
+        <span>Digital Catalyst</span>
+      </div>
+
+      <button class="hamburger" id="hamburger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="nav-links" id="navLinks">
+        <a href="#" class="nav-link active" data-page="dashboard">Dashboard</a>
+        <a href="#" class="nav-link" data-page="projects">Projects</a>
+        <a href="#" class="nav-link" data-page="analytics">Analytics</a>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn-icon" id="refreshBtn" title="Refresh data">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A8 8 0 1 0 14 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 2v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="sync-label" id="syncLabel">–</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content area -->
+  <main class="main">
+
+    <!-- DASHBOARD PAGE -->
+    <section id="page-dashboard" class="page active">
+
+      <!-- KPI Cards -->
+      <div class="section-header">
+        <h1 class="page-title">Overview</h1>
+        <div class="client-filter-wrap">
+          <select id="clientFilter" class="select-control">
+            <option value="all">All Clients</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+        <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
+      </div>
+
+      <!-- Spotlight row -->
+      <div class="spotlight-row" id="spotlightRow"></div>
+
+      <!-- Monthly Summary -->
+      <div class="section-header mt-section">
+        <h2 class="section-title">Monthly Summary</h2>
+      </div>
+      <div class="monthly-grid" id="monthlyGrid"></div>
+
+      <!-- Client Performance -->
+      <div class="section-header mt-section">
+        <h2 class="section-title">Client Performance</h2>
+      </div>
+      <div class="client-grid" id="clientGrid"></div>
+
+    </section>
+
+    <!-- PROJECTS PAGE -->
+    <section id="page-projects" class="page">
+      <div class="section-header">
+        <h1 class="page-title">Projects</h1>
+        <button class="btn-secondary" id="exportCsvBtn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export CSV
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search projects…" />
+        </div>
+        <select id="filterClient" class="select-control">
+          <option value="">All Clients</option>
+        </select>
+        <select id="filterMonth" class="select-control">
+          <option value="">All Months</option>
+        </select>
+        <select id="filterPaid" class="select-control">
+          <option value="">Any Payment</option>
+          <option value="paid">Paid</option>
+          <option value="unpaid">Unpaid</option>
+        </select>
+        <select id="filterStatus" class="select-control">
+          <option value="">Any Status</option>
+          <option value="completed">Completed</option>
+          <option value="review">Needs Review</option>
+          <option value="exported">Exported</option>
+        </select>
+        <button class="btn-ghost" id="clearFiltersBtn">Clear</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table class="data-table" id="projectTable">
+          <thead>
+            <tr>
+              <th data-sort="date" class="sortable">Date <span class="sort-icon">↕</span></th>
+              <th data-sort="client" class="sortable">Client <span class="sort-icon">↕</span></th>
+              <th data-sort="name" class="sortable">Project Name <span class="sort-icon">↕</span></th>
+              <th data-sort="amount" class="sortable">Amount <span class="sort-icon">↕</span></th>
+              <th>Review</th>
+              <th>Revised</th>
+              <th>Payment</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="projectTableBody">
+            <tr><td colspan="8" class="table-loading">Loading data…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="pagination"></div>
+    </section>
+
+    <!-- ANALYTICS PAGE -->
+    <section id="page-analytics" class="page">
+      <div class="section-header">
+        <h1 class="page-title">Analytics</h1>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card wide">
+          <div class="chart-card-header">
+            <span class="chart-title">Revenue by Month</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="revenueChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card wide">
+          <div class="chart-card-header">
+            <span class="chart-title">Videos Completed by Month</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="videosChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-title">Paid vs Unpaid Revenue</span>
+          </div>
+          <div class="chart-container chart-container--sm">
+            <canvas id="paidChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-title">Revenue by Client</span>
+          </div>
+          <div class="chart-container chart-container--sm">
+            <canvas id="clientChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
