@@ -12,6 +12,7 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
+
   <!-- Navigation -->
   <nav class="nav">
     <div class="nav-inner">
@@ -35,7 +36,10 @@
 
       <div class="nav-actions">
         <button class="btn-icon" id="refreshBtn" title="Refresh data">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A8 8 0 1 0 14 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 2v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M13.65 2.35A8 8 0 1 0 14 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M14 2v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
         <span class="sync-label" id="syncLabel">–</span>
       </div>
@@ -48,7 +52,6 @@
     <!-- DASHBOARD PAGE -->
     <section id="page-dashboard" class="page active">
 
-      <!-- KPI Cards -->
       <div class="section-header">
         <h1 class="page-title">Overview</h1>
         <div class="client-filter-wrap">
@@ -69,16 +72,13 @@
         <div class="kpi-card skeleton"><div class="kpi-shimmer"></div></div>
       </div>
 
-      <!-- Spotlight row -->
       <div class="spotlight-row" id="spotlightRow"></div>
 
-      <!-- Monthly Summary -->
       <div class="section-header mt-section">
         <h2 class="section-title">Monthly Summary</h2>
       </div>
       <div class="monthly-grid" id="monthlyGrid"></div>
 
-      <!-- Client Performance -->
       <div class="section-header mt-section">
         <h2 class="section-title">Client Performance</h2>
       </div>
@@ -91,15 +91,19 @@
       <div class="section-header">
         <h1 class="page-title">Projects</h1>
         <button class="btn-secondary" id="exportCsvBtn">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
           Export CSV
         </button>
       </div>
 
-      <!-- Filters -->
       <div class="filter-bar">
         <div class="search-wrap">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
           <input type="text" id="searchInput" class="search-input" placeholder="Search projects…" />
         </div>
         <select id="filterClient" class="select-control">
@@ -122,7 +126,6 @@
         <button class="btn-ghost" id="clearFiltersBtn">Clear</button>
       </div>
 
-      <!-- Table -->
       <div class="table-wrap">
         <table class="data-table" id="projectTable">
           <thead>
@@ -143,7 +146,6 @@
         </table>
       </div>
 
-      <!-- Pagination -->
       <div class="pagination" id="pagination"></div>
     </section>
 
