@@ -34,9 +34,12 @@ const CLIENT_COLORS = [
 // ── ENTRY POINT ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
-  initFilters();
   initTable();
   loadAllData();
+
+  setInterval(() => {
+    loadAllData();
+  }, 60000);
 });
 
 // ── NAVIGATION ────────────────────────────────────────────────────
